@@ -47,7 +47,7 @@
         function uploadToSignedUrl(file, signedUrl) {
             var xhr = new XMLHttpRequest();
             xhr.open('PUT', signedUrl, true);
-            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.setRequestHeader('Content-Type', file.type, 'x-amz-acl', 'public-read');
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     alert('File uploaded successfully!');
