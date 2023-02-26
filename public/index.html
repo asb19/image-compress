@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Compress Image</title>
+	<script src="https://sdk.amazonaws.com/js/aws-sdk-2.7.16.min.js"></script>
+</head>
+<body>
+	<h1>File Upload For Compression</h1>
+	<form>
+		<label for="file">Select a file to upload:</label>
+		<input type="file" name="file" id="file"><br><br>
+		<input type="button" value="Upload" onclick="uploadFile()">
+	</form>
+
+	<div>
+		<h2>
+			Preview the compressed image
+		</h2>
+		<div id="output">
+			
+		</div>
+	</div>
+	<script>
+		// Initialize the AWS SDK with your access key and secret key
+		AWS.config.update({
+			accessKeyId: 'AKIATIIRFDZFXP65KU54',
+			secretAccessKey: 'j56YysEQctERa22XU8NNv2UtMfmrAL4k0eMUc7Iq',
+			region: 'ap-south-1'
+		});
+
+		// Function to generate a signed URL for the file
+		function getSignedUrl(fileName, fileType, callback) {
+			var s3 = new AWS.S3();
+			var params = {
+				Bucket: 'image-test-bucket1',
+				Key: fileName,
+				ContentType: fileType
+			};
+			s3.getSignedUrl('putObject', params, callback);
+		}
+
+		// Function to upload the file to the signed URL
+		function uploadToSignedUrl(signedUrl, file) {
+			var xhr = new XMLHttpRequest();
+			xhr.open('PUT', signedUrl, true);
+			xhr.setRequestHeader('Content-Type', file.type);
+			xhr.onload = function() {
+				if (xhr.status === 200) {
+					alert('File uploaded successfully');
+					document.getElementById('output').innerHTML=`<img src=https://resized-images-123.s3.ap-south-1.amazonaws.com/resized-${file.name} alt="" srcset="">`
+				} else {
+					alert('File upload failed');
+				}
+			};
+			xhr.send(file);
+		}
+
+		// Function to handle the file upload
+		function uploadFile() {
+			var fileInput = document.getElementById('file');
+			var file = fileInput.files[0];
+			var fileName = file.name;
+			var fileType = file.type;
+			getSignedUrl(fileName, fileType, function(err, url) {
+				if (err) {
+					console.log(err);
+				} else {
+					uploadToSignedUrl(url, file);
+				}
+			});
+		}
+	</script>
+</body>
+</html>
