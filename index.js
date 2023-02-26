@@ -3,6 +3,7 @@ const express = require('express')
 const AWS = require('aws-sdk');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const cors = require('cors')
 
 dotenv.config();
 
@@ -12,10 +13,12 @@ const s3 = new AWS.S3({
     region: 'ap-south-1'
 });
 
-const app = express()
+const app = express(cors())
 
 
 app.use(express.static(__dirname + '/public'));
+
+app.use()
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
