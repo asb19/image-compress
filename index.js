@@ -10,7 +10,8 @@ dotenv.config();
 const s3 = new AWS.S3({
     accessKeyId: process.env.ACCESS_KEY,
     secretAccessKey: process.env.SECRET_KEY,
-    region: 'ap-south-1'
+    region: 'ap-south-1',
+    signatureVersion: 'v2'
 });
 
 const app = express(cors())
@@ -36,7 +37,7 @@ app.post('/api/upload', (req, res) => {
         Bucket: 'image-test-bucket1',
         Key: fileName,
         ContentType: fileType,
-        ACL: 'public-read'
+        ACL: 'public-read',
     };
     s3.getSignedUrl('putObject', s3Params, (err, url) => {
         if (err) {
