@@ -11,7 +11,6 @@ const s3 = new AWS.S3({
     accessKeyId: process.env.ACCESS_KEY,
     secretAccessKey: process.env.SECRET_KEY,
     region: 'ap-south-1',
-    signatureVersion: 'v2'
 });
 
 const app = express(cors())
