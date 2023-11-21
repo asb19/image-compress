@@ -6,3 +6,5 @@ PR: https://github.com/asb19/image-compress/pull/11 Status: Pending (Closed with
 Description: change log 3 \n
 PR: https://github.com/asb19/image-compress/pull/12 Status: Pending
 Description: new description\n
+PR: https://github.com/asb19/image-compress/pull/12 Status: Pending (Closed without merge)
+Description: new description \n
