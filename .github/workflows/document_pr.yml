@@ -5,6 +5,7 @@ on:
     types: [opened, closed, reopened, synchronize]
     paths:
       - /**
+  workflow_dispatch:
 
 
 jobs:
