@@ -52,7 +52,7 @@ jobs:
             echo "PR: $PR_URL Status: Pending" >> pull_request_status.md
             echo "Description: $PR_DESCRIPTION\n" >> pull_request_status.md
           elif [ "$PR_STATE" == "closed" ]; then
-            PR_MERGED=$(curl -s -X GET -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/merge" | jq -r '.merged')
+            PR_MERGED=$(curl -s -X GET -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -r '.merged')
             if [ "$PR_MERGED" == "true" ]; then
               echo "PR: $PR_URL Status: Completed" >> pull_request_status.md
               echo "Description: $PR_DESCRIPTION\n" >> pull_request_status.md
