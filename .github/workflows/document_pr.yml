@@ -22,12 +22,25 @@ jobs:
       - name: Merge changes from origin/target-branch
         run: git merge --ff-only origin/${{ github.event.pull_request.base.ref }}
 
-      - name: Get PR description
+      - name: Get PR number and state
         run: |
           PR_NUMBER=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
+          PR_STATE=$(jq --raw-output .action "$GITHUB_EVENT_PATH")
           PR_DESCRIPTION=$(curl -s -X GET -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -r '.body')
-
-          echo "PR $PR_NUMBER Description: $PR_DESCRIPTION" > pull_request_status.md
+          
+          if [ "$PR_STATE" == "opened" ]; then
+            echo "PR $PR_NUMBER Status: Pending" > pull_request_status.md
+            echo "Description: $PR_DESCRIPTION" >> pull_request_status.md
+          elif [ "$PR_STATE" == "closed" ]; then
+            PR_MERGED=$(curl -s -X GET -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -r '.merged')
+            if [ "$PR_MERGED" == "true" ]; then
+              echo "PR $PR_NUMBER Status: Completed" > pull_request_status.md
+              echo "Description: $PR_DESCRIPTION" >> pull_request_status.md
+            else
+              echo "PR $PR_NUMBER Status: Pending (Closed without merge)" > pull_request_status.md
+              echo "Description: $PR_DESCRIPTION" >> pull_request_status.md
+            fi
+          fi
 
       - name: Commit and push changes
         run: |
