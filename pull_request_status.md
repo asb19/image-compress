@@ -10,3 +10,5 @@ PR: https://github.com/asb19/image-compress/pull/12 Status: Pending (Closed with
 Description: new description \n
 PR: https://github.com/asb19/image-compress/pull/13 Status: Pending
 Description: change log 5\n
+PR: https://github.com/asb19/image-compress/pull/13 Status: Completed
+Description: change log 5\n
