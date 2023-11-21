@@ -15,6 +15,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Fetch target branch changes
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      - name: Switch to target branch
+        run: git checkout ${{ github.event.pull_request.base.ref }}
+
+      - name: Merge changes from origin/target-branch
+        run: git merge --ff-only origin/${{ github.event.pull_request.base.ref }}
+
       - name: Get PR description
         run: |
           PR_NUMBER=$(jq --raw-output .number "$GITHUB_EVENT_PATH")
@@ -22,10 +31,11 @@ jobs:
 
           echo "PR $PR_NUMBER Description: $PR_DESCRIPTION" > pull_request_status.md
 
+      - name: Commit and push changes
+        run: |
           git config user.email "amirsohel.as10@gmail.com"
           git config user.name "asb19"
-          git pull
           git add pull_request_status.md
           git commit -m "Update PR status with description"
-          git push
+          git push origin ${{ github.event.pull_request.base.ref }}
          
