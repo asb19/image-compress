@@ -99,37 +99,46 @@ pipeline {
                             def changeUrl = env.CHANGE_URL
                             echo "PR URL: ${changeUrl}"
 
-                            // Parse owner/repo from URL
+                            // Parse owner/repo from URL using regex (more reliable)
                             // URL format: https://github.com/owner/repo/pull/123
-                            // After split by '/': ['https:', '', 'github.com', 'owner', 'repo', 'pull', '123']
-                            def urlParts = changeUrl.split('/')
-                            def owner = urlParts[3]  // owner
-                            def repo = urlParts[4]   // repo
+                            def matcher = (changeUrl =~ /github\.com\/([^\/]+)\/([^\/]+)\/pull/)
 
-                            echo "DEBUG: URL parts: ${urlParts}"
-                            echo "DEBUG: Owner: ${owner}, Repo: ${repo}"
+                            def owner = ''
+                            def repo = ''
+
+                            if (matcher.find()) {
+                                owner = matcher.group(1)
+                                repo = matcher.group(2)
+                                echo "DEBUG: Regex matched - Owner: ${owner}, Repo: ${repo}"
+                            } else {
+                                echo "ERROR: Could not parse owner/repo from URL: ${changeUrl}"
+                                throw new Exception("Invalid PR URL format")
+                            }
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
                             echo "DEBUG: API URL: ${apiUrl}"
 
+                            // Use python to parse JSON (more reliable than jq)
                             def curlResult = sh(
                                 script: """
-                                    export API_URL='${apiUrl}'
                                     curl -s -H "Authorization: token \$GITHUB_TOKEN" \
                                         -H "Accept: application/vnd.github.v3+json" \
-                                        "\$API_URL" | jq -r .body
+                                        '${apiUrl}' | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('body', '') if data.get('body') else '')"
                                 """,
                                 returnStdout: true
                             ).trim()
 
+                            echo "DEBUG: curlResult length: ${curlResult ? curlResult.length() : 0}"
+                            echo "DEBUG: curlResult (first 300 chars): ${curlResult ? curlResult.take(300) : 'EMPTY'}"
 
-                            if (curlResult && curlResult != '') {
+                            if (curlResult && curlResult != '' && curlResult != 'null' && curlResult != 'None') {
                                 prDescription = curlResult
-                                echo "✅ Got PR description from GitHub API via curl"
-                                echo "${prDescription}"
+                                echo "✅ Got PR description from GitHub API"
+                                echo "DEBUG: Full description: ${prDescription}"
                             } else {
-                                echo "⚠️ GitHub API returned empty description"
+                                echo "⚠️ GitHub API returned empty or null description"
+                                echo "DEBUG: curlResult value: '${curlResult}'"
                             }
                         } catch (Exception e) {
                             echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
