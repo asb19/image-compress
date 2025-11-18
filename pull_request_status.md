@@ -17,3 +17,8 @@ Description: Testing Jenkins automation
 
 "run_tests": true
 "run_tests_on": ["cart", "returns"]\n
+PR: https://github.com/asb19/image-compress/pull/16 Status: Pending (Closed without merge)
+Description: Testing Jenkins automation
+
+"run_tests": true
+"run_tests_on": ["cart", "returns"].           \n
