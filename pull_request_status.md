@@ -146,3 +146,6 @@ Description: "run_tests": true
 PR: https://github.com/asb19/image-compress/pull/36 Status: Pending
 Description: "run_tests": true
 "run_tests_on": ["cart"]  # Only cart test\n
+PR: https://github.com/asb19/image-compress/pull/36 Status: Pending (Closed without merge)
+Description: "run_tests": true
+"run_tests_on": ["cart"]  # Only cart test \n
