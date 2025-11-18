@@ -69,27 +69,80 @@ pipeline {
                 script {
                     // This is a PR build - parse description
                     echo "Parsing PR description for test configuration..."
-                    def prDescription = env.CHANGE_DESCRIPTION ?: ''
-                    echo "PR Description: ${prDescription}"
 
-                    // Parse run_tests flag
-                    def runTestsMatch = prDescription =~ /"run_tests"\s*:\s*true/
-                    env.RUN_TESTS = runTestsMatch ? 'true' : 'false'
+                    // Try multiple sources for PR description
+                    def prDescription = ''
 
-                    // Parse run_tests_on array
-                    def testsOnMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
-                    if (testsOnMatch) {
-                        def testsArray = testsOnMatch[0][1]
-                        env.TESTS_TO_RUN = testsArray.replaceAll('["\' ]', '').toLowerCase()
-                    } else {
-                        env.TESTS_TO_RUN = ''
+                    // Method 1: Try env.CHANGE_DESCRIPTION
+                    if (env.CHANGE_DESCRIPTION) {
+                        prDescription = env.CHANGE_DESCRIPTION
+                        echo "✅ Got PR description from env.CHANGE_DESCRIPTION"
+                    }
+                    // Method 2: Try to fetch from GitHub API using gh CLI
+                    else if (env.CHANGE_ID && env.CHANGE_URL) {
+                        echo "⚠️ env.CHANGE_DESCRIPTION is empty, trying to fetch from GitHub API..."
+                        try {
+                            // Extract owner and repo from CHANGE_URL
+                            // Example: https://github.com/owner/repo/pull/123
+                            def changeUrl = env.CHANGE_URL
+                            echo "PR URL: ${changeUrl}"
+
+                            // Try using gh CLI if available
+                            def ghResult = sh(
+                                script: "gh pr view ${env.CHANGE_ID} --json body --jq '.body' 2>/dev/null || echo 'GH_CLI_NOT_AVAILABLE'",
+                                returnStdout: true
+                            ).trim()
+
+                            if (ghResult != 'GH_CLI_NOT_AVAILABLE' && ghResult != '') {
+                                prDescription = ghResult
+                                echo "✅ Got PR description from GitHub API via gh CLI"
+                            } else {
+                                echo "⚠️ gh CLI not available or returned empty"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
+                        }
                     }
 
-                    echo "RUN_TESTS: ${env.RUN_TESTS}"
-                    echo "TESTS_TO_RUN: ${env.TESTS_TO_RUN}"
+                    echo "Final PR Description: ${prDescription}"
 
-                    if (env.RUN_TESTS != 'true') {
-                        echo "⚠️ Tests are disabled. Set \"run_tests\": true in PR description to enable."
+                    if (prDescription.trim().isEmpty()) {
+                        echo "⚠️ PR description is empty!"
+                        echo ""
+                        echo "To run tests, add this to your PR description:"
+                        echo '  "run_tests": true'
+                        echo '  "run_tests_on": ["cart", "returns"]'
+                        echo ""
+                        echo "Example PR description:"
+                        echo "  This PR adds new feature X"
+                        echo ""
+                        echo '  "run_tests": true'
+                        echo '  "run_tests_on": ["cart", "returns"]'
+                        echo ""
+                        env.RUN_TESTS = 'false'
+                        env.TESTS_TO_RUN = ''
+                    } else {
+                        echo "Parsing test configuration from description..."
+
+                        // Parse run_tests flag
+                        def runTestsMatch = prDescription =~ /"run_tests"\s*:\s*true/
+                        env.RUN_TESTS = runTestsMatch ? 'true' : 'false'
+
+                        // Parse run_tests_on array
+                        def testsOnMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
+                        if (testsOnMatch) {
+                            def testsArray = testsOnMatch[0][1]
+                            env.TESTS_TO_RUN = testsArray.replaceAll('["\' ]', '').toLowerCase()
+                        } else {
+                            env.TESTS_TO_RUN = ''
+                        }
+
+                        echo "✅ RUN_TESTS: ${env.RUN_TESTS}"
+                        echo "✅ TESTS_TO_RUN: ${env.TESTS_TO_RUN}"
+
+                        if (env.RUN_TESTS != 'true') {
+                            echo "⚠️ Tests are disabled. Set \"run_tests\": true in PR description to enable."
+                        }
                     }
                 }
             }
