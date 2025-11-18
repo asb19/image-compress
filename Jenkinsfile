@@ -55,7 +55,10 @@ pipeline {
                         echo "PR Author Display Name: ${env.CHANGE_AUTHOR_DISPLAY_NAME ?: 'N/A'}"
                         echo "PR Author Email: ${env.CHANGE_AUTHOR_EMAIL ?: 'N/A'}"
 
-                        
+                        // Print all environment variables for debugging
+                        echo "=== DEBUG: All Environment Variables ==="
+                        sh 'printenv | sort'
+                        echo "=== END DEBUG ==="
 
                         env.IS_PR = 'true'
                     } else {
@@ -107,11 +110,24 @@ pipeline {
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
                             echo "API URL: ${apiUrl}"
 
+                            // First, let's see what the API returns
+                            def rawResponse = sh(
+                                script: """
+                                    curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                                        -H 'Accept: application/vnd.github.v3+json' \
+                                        '${apiUrl}'
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            echo "Raw API Response (first 500 chars): ${rawResponse.take(500)}"
+
+                            // Parse the body using python
                             def curlResult = sh(
                                 script: """
                                     curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
                                         -H 'Accept: application/vnd.github.v3+json' \
-                                        '${apiUrl}' | jq -r '.body // empty'
+                                        '${apiUrl}' | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('body', ''))"
                                 """,
                                 returnStdout: true
                             ).trim()
