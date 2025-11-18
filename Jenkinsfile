@@ -91,7 +91,7 @@ pipeline {
                         prDescription = env.CHANGE_DESCRIPTION
                         echo "✅ Got PR description from env.CHANGE_DESCRIPTION"
                     }
-                    // Method 2: Try to fetch from GitHub API using gh CLI
+                    // Method 2: Try to fetch from GitHub API using curl
                     else if (env.CHANGE_ID && env.CHANGE_URL) {
                         echo "⚠️ env.CHANGE_DESCRIPTION is empty, trying to fetch from GitHub API..."
                         try {
@@ -100,17 +100,32 @@ pipeline {
                             def changeUrl = env.CHANGE_URL
                             echo "PR URL: ${changeUrl}"
 
-                            // Try using gh CLI if available
-                            def ghResult = sh(
-                                script: "gh pr view ${env.CHANGE_ID} --json body --jq '.body' 2>/dev/null || echo 'GH_CLI_NOT_AVAILABLE'",
+                            // Parse owner/repo from URL (e.g., https://github.com/rachitb99/new_fastapi_base/pull/18)
+                            def urlParts = changeUrl.tokenize('/')
+                            def owner = urlParts[3]  // rachitb99
+                            def repo = urlParts[4]   // new_fastapi_base
+
+                            echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
+
+                            // Use GitHub API to fetch PR description
+                            def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            def curlResult = sh(
+                                script: """
+                                    curl -s -H 'Accept: application/vnd.github.v3+json' '${apiUrl}' | \
+                                    grep -o '"body":"[^"]*"' | \
+                                    sed 's/"body":"\\(.*\\)"/\\1/' | \
+                                    sed 's/\\\\n/\\n/g' | \
+                                    sed 's/\\\\r//g' | \
+                                    head -1
+                                """,
                                 returnStdout: true
                             ).trim()
 
-                            if (ghResult != 'GH_CLI_NOT_AVAILABLE' && ghResult != '') {
-                                prDescription = ghResult
-                                echo "✅ Got PR description from GitHub API via gh CLI"
+                            if (curlResult && curlResult != '') {
+                                prDescription = curlResult
+                                echo "✅ Got PR description from GitHub API via curl"
                             } else {
-                                echo "⚠️ gh CLI not available or returned empty"
+                                echo "⚠️ GitHub API returned empty description"
                             }
                         } catch (Exception e) {
                             echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
