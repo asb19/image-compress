@@ -99,14 +99,19 @@ pipeline {
                             def changeUrl = env.CHANGE_URL
                             echo "PR URL: ${changeUrl}"
 
-                            // Parse owner/repo from URL (e.g., https://github.com/rachitb99/new_fastapi_base/pull/18)
-                            def urlParts = changeUrl.tokenize('/')
-                            def owner = urlParts[3]  // rachitb99
-                            def repo = urlParts[4]   // new_fastapi_base
+                            // Parse owner/repo from URL
+                            // URL format: https://github.com/owner/repo/pull/123
+                            // After split by '/': ['https:', '', 'github.com', 'owner', 'repo', 'pull', '123']
+                            def urlParts = changeUrl.split('/')
+                            def owner = urlParts[3]  // owner
+                            def repo = urlParts[4]   // repo
 
+                            echo "DEBUG: URL parts: ${urlParts}"
+                            echo "DEBUG: Owner: ${owner}, Repo: ${repo}"
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            echo "DEBUG: API URL: ${apiUrl}"
 
                             def curlResult = sh(
                                 script: """
