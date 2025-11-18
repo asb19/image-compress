@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPush()   // Automatically responds to GitHub webhook events
-    }
-
     // Parameters for manual triggering
     parameters {
         string(
@@ -29,6 +25,12 @@ pipeline {
         )
     }
 
+    // No triggers block - we rely on Multibranch Pipeline webhook
+    // This ensures builds only run for PRs, not every push
+    properties([
+        pipelineTriggers([])
+    ])
+
     environment {
         // Environment variables
         PYTHON_VERSION = '3.12'
@@ -37,38 +39,57 @@ pipeline {
     }
 
     stages {
-        stage('Setup Environment') {
+        stage('Check Build Type') {
             steps {
                 script {
-                    // For manual builds, use parameters
-                    // For PR builds, parse description
+                    // Check if this is a PR build
                     if (env.CHANGE_ID) {
-                        // This is a PR build - parse description
-                        echo "Detected PR build - parsing description"
-                        def prDescription = env.CHANGE_DESCRIPTION ?: ''
-                        echo "PR Description: ${prDescription}"
-
-                        // Parse run_tests flag
-                        def runTestsMatch = prDescription =~ /"run_tests"\s*:\s*true/
-                        env.RUN_TESTS = runTestsMatch ? 'true' : 'false'
-
-                        // Parse run_tests_on array
-                        def testsOnMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
-                        if (testsOnMatch) {
-                            def testsArray = testsOnMatch[0][1]
-                            env.TESTS_TO_RUN = testsArray.replaceAll('["\' ]', '').toLowerCase()
-                        } else {
-                            env.TESTS_TO_RUN = ''
-                        }
+                        echo "✅ This is a PR build (PR #${env.CHANGE_ID})"
+                        echo "PR Title: ${env.CHANGE_TITLE ?: 'N/A'}"
+                        echo "PR Author: ${env.CHANGE_AUTHOR ?: 'N/A'}"
+                        env.IS_PR = 'true'
                     } else {
-                        // Manual build - use parameters
-                        echo "Manual build - using parameters"
-                        env.RUN_TESTS = params.RUN_TESTS ? 'true' : 'false'
-                        env.TESTS_TO_RUN = params.TESTS_TO_RUN ?: 'cart,returns'
+                        echo "⚠️ This is NOT a PR build - it's a regular branch build"
+                        echo "Skipping pipeline execution. Only PR builds are supported."
+                        env.IS_PR = 'false'
+                        // Exit early for non-PR builds
+                        currentBuild.result = 'NOT_BUILT'
+                        error('This pipeline only runs for Pull Requests. Please create a PR to trigger tests.')
+                    }
+                }
+            }
+        }
+
+        stage('Setup Environment') {
+            when {
+                expression { env.IS_PR == 'true' }
+            }
+            steps {
+                script {
+                    // This is a PR build - parse description
+                    echo "Parsing PR description for test configuration..."
+                    def prDescription = env.CHANGE_DESCRIPTION ?: ''
+                    echo "PR Description: ${prDescription}"
+
+                    // Parse run_tests flag
+                    def runTestsMatch = prDescription =~ /"run_tests"\s*:\s*true/
+                    env.RUN_TESTS = runTestsMatch ? 'true' : 'false'
+
+                    // Parse run_tests_on array
+                    def testsOnMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
+                    if (testsOnMatch) {
+                        def testsArray = testsOnMatch[0][1]
+                        env.TESTS_TO_RUN = testsArray.replaceAll('["\' ]', '').toLowerCase()
+                    } else {
+                        env.TESTS_TO_RUN = ''
                     }
 
                     echo "RUN_TESTS: ${env.RUN_TESTS}"
                     echo "TESTS_TO_RUN: ${env.TESTS_TO_RUN}"
+
+                    if (env.RUN_TESTS != 'true') {
+                        echo "⚠️ Tests are disabled. Set \"run_tests\": true in PR description to enable."
+                    }
                 }
             }
         }
