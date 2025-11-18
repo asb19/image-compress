@@ -51,15 +51,8 @@ pipeline {
                         echo "PR URL: ${env.CHANGE_URL ?: 'N/A'}"
                         echo "PR Target: ${env.CHANGE_TARGET ?: 'N/A'}"
                         echo "Branch Name: ${env.BRANCH_NAME ?: 'N/A'}"
-
-                        // Debug: Print all CHANGE_* environment variables
-                        echo "=== DEBUG: All PR-related environment variables ==="
-                        env.getEnvironment().each { key, value ->
-                            if (key.startsWith('CHANGE_')) {
-                                echo "${key} = ${value}"
-                            }
-                        }
-                        echo "=== END DEBUG ==="
+                        echo "PR Author Display Name: ${env.CHANGE_AUTHOR_DISPLAY_NAME ?: 'N/A'}"
+                        echo "PR Author Email: ${env.CHANGE_AUTHOR_EMAIL ?: 'N/A'}"
 
                         env.IS_PR = 'true'
                     } else {
