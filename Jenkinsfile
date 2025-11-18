@@ -55,6 +55,11 @@ pipeline {
                         echo "PR Author Display Name: ${env.CHANGE_AUTHOR_DISPLAY_NAME ?: 'N/A'}"
                         echo "PR Author Email: ${env.CHANGE_AUTHOR_EMAIL ?: 'N/A'}"
 
+                        // Print all environment variables for debugging
+                        echo "=== DEBUG: All Environment Variables ==="
+                        sh 'printenv | sort'
+                        echo "=== END DEBUG ==="
+
                         env.IS_PR = 'true'
                     } else {
                         echo "⚠️ This is NOT a PR build - it's a regular branch build"
@@ -102,7 +107,7 @@ pipeline {
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
                             // Use GitHub API to fetch PR description
-                            def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            def apiUrl = "  "
                             def curlResult = sh(
                                 script: """
                                     curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
