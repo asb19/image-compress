@@ -67,3 +67,6 @@ PR: https://github.com/asb19/image-compress/pull/22 Status: Pending
 Description: null\n
 PR: https://github.com/asb19/image-compress/pull/22 Status: Pending (Closed without merge)
 Description: null \n
+PR: https://github.com/asb19/image-compress/pull/23 Status: Pending
+Description: "run_tests": true
+"run_tests_on": ["cart"]  # Only cart test\n
