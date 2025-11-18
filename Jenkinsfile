@@ -104,12 +104,9 @@ pipeline {
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
                             def curlResult = sh(
                                 script: """
-                                    curl -s -H 'Accept: application/vnd.github.v3+json' '${apiUrl}' | \
-                                    grep -o '"body":"[^"]*"' | \
-                                    sed 's/"body":"\\(.*\\)"/\\1/' | \
-                                    sed 's/\\\\n/\\n/g' | \
-                                    sed 's/\\\\r//g' | \
-                                    head -1
+                                    curl -s -H "Authorization: token ${amirgit}" \
+                                        -H 'Accept: application/vnd.github.v3+json' \
+                                        '${apiUrl}' | jq -r .body
                                 """,
                                 returnStdout: true
                             ).trim()
