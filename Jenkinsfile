@@ -37,6 +37,7 @@ pipeline {
         PYTHON_VERSION = '3.12'
         VENV_DIR = 'venv'
         TEST_RESULTS_DIR = 'test_results'
+        GITHUB_TOKEN = credentials('amirgit')  // 'amirgit' = Jenkins credential ID
     }
 
     stages {
@@ -92,44 +93,43 @@ pipeline {
                     // Method 2: Try to fetch from GitHub API using curl
                     else if (env.CHANGE_ID && env.CHANGE_URL) {
                         echo "⚠️ env.CHANGE_DESCRIPTION is empty, trying to fetch from GitHub API..."
+                        try {
+                            // Extract owner and repo from CHANGE_URL
+                            // Example: https://github.com/owner/repo/pull/123
+                            def changeUrl = env.CHANGE_URL
+                            echo "PR URL: ${changeUrl}"
 
-                        // Extract owner and repo from CHANGE_URL
-                        def changeUrl = env.CHANGE_URL
-                        echo "PR URL: ${changeUrl}"
+                            // Parse owner/repo from URL (e.g., https://github.com/rachitb99/new_fastapi_base/pull/18)
+                            def urlParts = changeUrl.tokenize('/')
+                            def owner = urlParts[3]  // rachitb99
+                            def repo = urlParts[4]   // new_fastapi_base
 
-                        // Parse owner/repo from URL (e.g., https://github.com/rachitb99/new_fastapi_base/pull/18)
-                        def urlParts = changeUrl.tokenize('/')
-                        def owner = urlParts[3]  // rachitb99
-                        def repo = urlParts[4]   // new_fastapi_base
+                            echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
-                        echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
+                            // Use GitHub API to fetch PR description
+                            def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            echo "API URL: ${apiUrl}"
 
-                        // Use GitHub API to fetch PR description
-                        def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
-                        echo "API URL: ${apiUrl}"
+                            
 
-                        // Use withCredentials to securely pass the token
-                        withCredentials([string(credentialsId: 'amirgit', variable: 'GH_TOKEN')]) {
-                            try {
-                                // Parse the body using python (use single quotes to avoid interpolation)
-                                def curlResult = sh(
-                                    script: """#!/bin/bash
-                                        curl -s -H "Authorization: token \$GH_TOKEN" \
-                                            -H 'Accept: application/vnd.github.v3+json' \
-                                            '${apiUrl}' | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('body', ''))"
-                                    """,
-                                    returnStdout: true
-                                ).trim()
+                            // Parse the body using python
+                            def curlResult = sh(
+                                script: '''
+                                    curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                                         -H "Accept: application/vnd.github.v3+json" \
+                                         "$API_URL" | jq -r .body
+                                ''',
+                                returnStdout: true
+                            ).trim()
 
-                                if (curlResult && curlResult != '') {
-                                    prDescription = curlResult
-                                    echo "✅ Got PR description from GitHub API via curl"
-                                } else {
-                                    echo "⚠️ GitHub API returned empty description"
-                                }
-                            } catch (Exception e) {
-                                echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
+                            if (curlResult && curlResult != '') {
+                                prDescription = curlResult
+                                echo "✅ Got PR description from GitHub API via curl"
+                            } else {
+                                echo "⚠️ GitHub API returned empty description"
                             }
+                        } catch (Exception e) {
+                            echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
                         }
                     }
 
