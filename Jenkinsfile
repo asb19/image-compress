@@ -37,7 +37,7 @@ pipeline {
         PYTHON_VERSION = '3.12'
         VENV_DIR = 'venv'
         TEST_RESULTS_DIR = 'test_results'
-        GITHUB_TOKEN = credentials('amirgit')  // 'amirgit' = Jenkins credential ID
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')  // 'amirgit' = Jenkins credential ID
     }
 
     stages {
@@ -73,136 +73,114 @@ pipeline {
             }
         }
 
-       stage('Setup Environment') {
-    when {
-        expression { env.IS_PR == 'true' }
-    }
-    steps {
-        script {
-            echo "🔍 Parsing PR description for test configuration..."
+        stage('Setup Environment') {
+            when {
+                expression { env.IS_PR == 'true' }
+            }
+            steps {
+                script {
+                    // This is a PR build - parse description
+                    echo "Parsing PR description for test configuration..."
 
-            def prDescription = ''
+                    // Try multiple sources for PR description
+                    def prDescription = ''
 
-            //
-            // ---------------------------
-            // 1) Try Jenkins-provided CHANGE_DESCRIPTION (fastest)
-            // ---------------------------
-            //
-            if (env.CHANGE_DESCRIPTION) {
-                echo "✅ Got PR description from env.CHANGE_DESCRIPTION"
-                prDescription = env.CHANGE_DESCRIPTION
+                    // Method 1: Try env.CHANGE_DESCRIPTION
+                    if (env.CHANGE_DESCRIPTION) {
+                        prDescription = env.CHANGE_DESCRIPTION
+                        echo "✅ Got PR description from env.CHANGE_DESCRIPTION"
+                    }
+                    // Method 2: Try to fetch from GitHub API using curl
+                    else if (env.CHANGE_ID && env.CHANGE_URL) {
+                        echo "⚠️ env.CHANGE_DESCRIPTION is empty, trying to fetch from GitHub API..."
+                        try {
+                            // Extract owner and repo from CHANGE_URL
+                            // Example: https://github.com/owner/repo/pull/123
+                            def changeUrl = env.CHANGE_URL
+                            echo "PR URL: ${changeUrl}"
 
-            } else if (env.CHANGE_ID && env.CHANGE_URL) {
-                echo "⚠️ CHANGE_DESCRIPTION empty — fetching from GitHub API..."
+                            // Parse owner/repo from URL
+                            // URL format: https://github.com/owner/repo/pull/123
+                            // After split by '/': ['https:', '', 'github.com', 'owner', 'repo', 'pull', '123']
+                            def urlParts = changeUrl.split('/')
+                            def owner = urlParts[3]
+                            def repo = urlParts[4]
 
-                //
-                // ---------------------------
-                // Extract owner/repo from URL
-                // URL: https://github.com/owner/repo/pull/123
-                // ---------------------------
-                //
-                def parts = env.CHANGE_URL.split('/')
-                def owner = parts[3]
-                def repo  = parts[4]
+                            echo "DEBUG: Owner: ${owner}, Repo: ${repo}"
+                            echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
-                echo "📌 Repo detected: ${owner}/${repo}"
-                echo "📌 PR number: ${env.CHANGE_ID}"
+                            def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            echo "DEBUG: API URL: ${apiUrl}"
 
-                def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
-                echo "🌐 GitHub API URL: ${apiUrl}"
+                            // Use python to parse JSON (more reliable than jq)
+                            def curlResult = sh(
+                                script: """
+                                    curl -s -H "Authorization: token \$GITHUB_TOKEN" \
+                                        -H "Accept: application/vnd.github.v3+json" \
+                                        '${apiUrl}' | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('body', '') if data.get('body') else '')"
+                                """,
+                                returnStdout: true
+                            ).trim()
 
-                //
-                // ---------------------------
-                // 2) Call GitHub API using withCredentials (safe)
-                // ---------------------------
-                //
-                withCredentials([string(credentialsId: 'amirgit', variable: 'TOKEN')]) {
+                            echo "DEBUG: curlResult length: ${curlResult ? curlResult.length() : 0}"
+                            echo "DEBUG: curlResult (first 300 chars): ${curlResult ? curlResult.take(300) : 'EMPTY'}"
 
-                    def result = sh(
-                        script: """
-                            curl -s -H "Authorization: token \$TOKEN" \
-                                 -H "Accept: application/vnd.github.v3+json" \
-                                 '${apiUrl}' | python3 - << 'EOF'
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get("body", "") or "")
-except:
-    print("")
-EOF
-                        """,
-                        returnStdout: true
-                    ).trim()
+                            if (curlResult && curlResult != '' && curlResult != 'null' && curlResult != 'None') {
+                                prDescription = curlResult
+                                echo "✅ Got PR description from GitHub API"
+                                echo "DEBUG: Full description: ${prDescription}"
+                            } else {
+                                echo "⚠️ GitHub API returned empty or null description"
+                                echo "DEBUG: curlResult value: '${curlResult}'"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Could not fetch PR description from GitHub API: ${e.message}"
+                        }
+                    }
 
-                    echo "DEBUG: curlResult length = ${result.length()}"
-                    echo "DEBUG: First 200 chars: ${result.take(200)}"
+                    echo "Final PR Description: ${prDescription}"
 
-                    if (result && result != "null") {
-                        echo "✅ Successfully fetched PR description via GitHub API"
-                        prDescription = result
+                    if (prDescription.trim().isEmpty()) {
+                        echo "⚠️ PR description is empty!"
+                        echo ""
+                        echo "To run tests, add this to your PR description:"
+                        echo '  "run_tests": true'
+                        echo '  "run_tests_on": ["cart", "returns"]'
+                        echo ""
+                        echo "Example PR description:"
+                        echo "  This PR adds new feature X"
+                        echo ""
+                        echo '  "run_tests": true'
+                        echo '  "run_tests_on": ["cart", "returns"]'
+                        echo ""
+                        env.RUN_TESTS = 'false'
+                        env.TESTS_TO_RUN = ''
                     } else {
-                        echo "⚠️ GitHub API returned empty/null body"
-                        echo "⚠️ value = '${result}'"
+                        echo "Parsing test configuration from description..."
+
+                        // Parse run_tests flag
+                        def runTestsMatch = prDescription =~ /"run_tests"\s*:\s*true/
+                        env.RUN_TESTS = runTestsMatch ? 'true' : 'false'
+
+                        // Parse run_tests_on array
+                        def testsOnMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
+                        if (testsOnMatch) {
+                            def testsArray = testsOnMatch[0][1]
+                            env.TESTS_TO_RUN = testsArray.replaceAll('["\' ]', '').toLowerCase()
+                        } else {
+                            env.TESTS_TO_RUN = ''
+                        }
+
+                        echo "✅ RUN_TESTS: ${env.RUN_TESTS}"
+                        echo "✅ TESTS_TO_RUN: ${env.TESTS_TO_RUN}"
+
+                        if (env.RUN_TESTS != 'true') {
+                            echo "⚠️ Tests are disabled. Set \"run_tests\": true in PR description to enable."
+                        }
                     }
                 }
             }
-
-            //
-            // ---------------------------
-            // Final PR Description
-            // ---------------------------
-            //
-            echo "----------------------------"
-            echo "📄 Final PR Description:"
-            echo prDescription ?: "EMPTY"
-            echo "----------------------------"
-
-            if (!prDescription?.trim()) {
-                echo "⚠️ PR description is empty!"
-                echo "ℹ️ Add this to PR description to enable tests:"
-                echo '  "run_tests": true'
-                echo '  "run_tests_on": ["cart", "returns"]'
-
-                env.RUN_TESTS = 'false'
-                env.TESTS_TO_RUN = ''
-                return // stop parsing
-            }
-
-            //
-            // ---------------------------
-            // Parse JSON-like config from PR body
-            // ---------------------------
-            //
-
-            // Parse `"run_tests": true`
-            env.RUN_TESTS = (prDescription =~ /"run_tests"\s*:\s*true/) ? 'true' : 'false'
-
-            // Parse `"run_tests_on": ["cart", "returns"]`
-            def testsMatch = prDescription =~ /"run_tests_on"\s*:\s*\[(.*?)\]/
-            if (testsMatch) {
-                def list = testsMatch[0][1]
-                                .replaceAll(/["'\s]/, "")
-                                .toLowerCase()
-                env.TESTS_TO_RUN = list
-            } else {
-                env.TESTS_TO_RUN = ''
-            }
-
-            //
-            // ---------------------------
-            // Output parsed config
-            // ---------------------------
-            //
-            echo "🎯 RUN_TESTS = ${env.RUN_TESTS}"
-            echo "🎯 TESTS_TO_RUN = ${env.TESTS_TO_RUN}"
-
-            if (env.RUN_TESTS != 'true') {
-                echo "⚠️ Tests disabled — set \"run_tests\": true in PR description."
-            }
         }
-    }
-}
-
 
         stage('Checkout') {
             steps {
