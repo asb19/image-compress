@@ -99,21 +99,14 @@ pipeline {
                             def changeUrl = env.CHANGE_URL
                             echo "PR URL: ${changeUrl}"
 
-                            // Parse owner/repo from URL using regex (more reliable)
+                            // Parse owner/repo from URL
                             // URL format: https://github.com/owner/repo/pull/123
-                            def matcher = changeUrl =~ /github\.com\/([^\/]+)\/([^\/]+)\/pull/
+                            // After split by '/': ['https:', '', 'github.com', 'owner', 'repo', 'pull', '123']
+                            def urlParts = changeUrl.split('/')
+                            def owner = urlParts[3]
+                            def repo = urlParts[4]
 
-                            def owner = ''
-                            def repo = ''
-
-                            if (matcher) {
-                                owner = matcher[0][1]
-                                repo = matcher[0][2]
-                                echo "DEBUG: Regex matched - Owner: ${owner}, Repo: ${repo}"
-                            } else {
-                                echo "ERROR: Could not parse owner/repo from URL: ${changeUrl}"
-                                throw new Exception("Invalid PR URL format")
-                            }
+                            echo "DEBUG: Owner: ${owner}, Repo: ${repo}"
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
