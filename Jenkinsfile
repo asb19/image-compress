@@ -55,10 +55,7 @@ pipeline {
                         echo "PR Author Display Name: ${env.CHANGE_AUTHOR_DISPLAY_NAME ?: 'N/A'}"
                         echo "PR Author Email: ${env.CHANGE_AUTHOR_EMAIL ?: 'N/A'}"
 
-                        // Print all environment variables for debugging
-                        echo "=== DEBUG: All Environment Variables ==="
-                        sh 'printenv | sort'
-                        echo "=== END DEBUG ==="
+                        
 
                         env.IS_PR = 'true'
                     } else {
@@ -107,12 +104,14 @@ pipeline {
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
                             // Use GitHub API to fetch PR description
-                            def apiUrl = "  "
+                            def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
+                            echo "API URL: ${apiUrl}"
+
                             def curlResult = sh(
                                 script: """
                                     curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
                                         -H 'Accept: application/vnd.github.v3+json' \
-                                        '${apiUrl}' | jq -r .body
+                                        '${apiUrl}' | jq -r '.body // empty'
                                 """,
                                 returnStdout: true
                             ).trim()
