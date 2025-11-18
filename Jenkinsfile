@@ -127,6 +127,7 @@ pipeline {
                             if (curlResult && curlResult != '') {
                                 prDescription = curlResult
                                 echo "✅ Got PR description from GitHub API via curl"
+                                echo "${prDescription}"
                             } else {
                                 echo "⚠️ GitHub API returned empty description"
                             }
