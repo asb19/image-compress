@@ -106,21 +106,18 @@ pipeline {
 
                             echo "Fetching PR description from GitHub API for ${owner}/${repo} PR #${env.CHANGE_ID}"
 
-                            // Use GitHub API to fetch PR description
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
-                            echo "API URL: ${apiUrl}"
 
-                            
-
-                            // Parse the body using python
                             def curlResult = sh(
-                                script: '''
-                                    curl -s -H "Authorization: token $GITHUB_TOKEN" \
-                                         -H "Accept: application/vnd.github.v3+json" \
-                                         "$API_URL" | jq -r .body
-                                ''',
+                                script: """
+                                    export API_URL='${apiUrl}'
+                                    curl -s -H "Authorization: token \$GITHUB_TOKEN" \
+                                        -H "Accept: application/vnd.github.v3+json" \
+                                        "\$API_URL" | jq -r .body
+                                """,
                                 returnStdout: true
                             ).trim()
+
 
                             if (curlResult && curlResult != '') {
                                 prDescription = curlResult
