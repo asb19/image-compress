@@ -45,3 +45,6 @@ Description: Testing PR automation
 PR: https://github.com/asb19/image-compress/pull/18 Status: Pending (Closed without merge)
 Description: "run_tests": true
 "run_tests_on": ["cart"] \n
+PR: https://github.com/asb19/image-compress/pull/19 Status: Pending
+Description: "run_tests": true
+"run_tests_on": ["cart"]\n
