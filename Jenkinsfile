@@ -101,14 +101,14 @@ pipeline {
 
                             // Parse owner/repo from URL using regex (more reliable)
                             // URL format: https://github.com/owner/repo/pull/123
-                            def matcher = (changeUrl =~ /github\.com\/([^\/]+)\/([^\/]+)\/pull/)
+                            def matcher = changeUrl =~ /github\.com\/([^\/]+)\/([^\/]+)\/pull/
 
                             def owner = ''
                             def repo = ''
 
-                            if (matcher.find()) {
-                                owner = matcher.group(1)
-                                repo = matcher.group(2)
+                            if (matcher) {
+                                owner = matcher[0][1]
+                                repo = matcher[0][2]
                                 echo "DEBUG: Regex matched - Owner: ${owner}, Repo: ${repo}"
                             } else {
                                 echo "ERROR: Could not parse owner/repo from URL: ${changeUrl}"
