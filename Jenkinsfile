@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()   // Automatically responds to GitHub webhook events
+    }
+
     // Parameters for manual triggering
     parameters {
         string(
