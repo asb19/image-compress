@@ -37,6 +37,7 @@ pipeline {
         PYTHON_VERSION = '3.12'
         VENV_DIR = 'venv'
         TEST_RESULTS_DIR = 'test_results'
+        GITHUB_TOKEN = credentials('amirgit')  // 'amirgit' = Jenkins credential ID
     }
 
     stages {
@@ -104,7 +105,7 @@ pipeline {
                             def apiUrl = "https://api.github.com/repos/${owner}/${repo}/pulls/${env.CHANGE_ID}"
                             def curlResult = sh(
                                 script: """
-                                    curl -s -H "Authorization: token ${amirgit}" \
+                                    curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
                                         -H 'Accept: application/vnd.github.v3+json' \
                                         '${apiUrl}' | jq -r .body
                                 """,
