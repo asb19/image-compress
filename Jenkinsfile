@@ -27,9 +27,10 @@ pipeline {
 
     // No triggers block - we rely on Multibranch Pipeline webhook
     // This ensures builds only run for PRs, not every push
-    properties([
-        pipelineTriggers([])
-    ])
+    options {
+        // Disable concurrent builds for the same PR
+        disableConcurrentBuilds()
+    }
 
     environment {
         // Environment variables
